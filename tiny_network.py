@@ -105,19 +105,19 @@ if __name__ == '__main__':
 	metric_cost = train_info.get_cost(5*16)
 
 	score_model = train_info.get_model(devs=[mx.gpu(1)], network=feature_set, 
-										cost=metric_cost, num_epoch=100, lr=0.0002, wd=0.00001)
+					   cost=metric_cost, num_epoch=100, lr=0.0002, wd=0.00001)
 
 	score_model.fit(X=fileiter,
-					#eval_data=val,
-					train_metric=[mx.metric.CustomMetric(feval=lambda label, pred: np.sum(pred) / pred.shape[0])],
-					eval_metric=[train_model.NdcgEval(10), train_model.LFWVeri(0.0, 30.0, 300)],
-					# eval_metric        = [LFWVeri(0.0, 5.0, 1000)],
-					fixed_param_names=all_layers.list_arguments(),
-					#kvstore=kv,
-					batch_end_callback=mx.callback.Speedometer(150, 10),
-					#epoch_end_callback=checkpoint,
-					eval_first=False,
-					#l2_reg=args.l2_reg,
-					#svd_epoches_period=args.do_svd_period,
-					#svd_param_name=last_fc_name
-					)
+			#eval_data=val,
+			train_metric=[mx.metric.CustomMetric(feval=lambda label, pred: np.sum(pred) / pred.shape[0])],
+			eval_metric=[train_model.NdcgEval(10), train_model.LFWVeri(0.0, 30.0, 300)],
+			# eval_metric        = [LFWVeri(0.0, 5.0, 1000)],
+			fixed_param_names=all_layers.list_arguments(),
+			#kvstore=kv,
+			batch_end_callback=mx.callback.Speedometer(150, 10),
+			#epoch_end_callback=checkpoint,
+			eval_first=False,
+			#l2_reg=args.l2_reg,
+			#svd_epoches_period=args.do_svd_period,
+			#svd_param_name=last_fc_name
+			)
