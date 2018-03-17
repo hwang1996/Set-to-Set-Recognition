@@ -1,7 +1,7 @@
 import mxnet as mx
 import numpy as np
 import random
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 import os
 from mxnet.io import DataIter, DataBatch
@@ -22,7 +22,7 @@ class FileIter(DataIter):
 		self.label = mx.nd.zeros((self.batch_size, ))
 
 		self.train = mx.io.ImageRecordIter(
-			path_imgrec = '../hangzhougongan_train_noshuffle.rec',
+			path_imgrec = '../hangzhougongan_train.rec',
 			data_shape  = self.data_shapes,
 			batch_size  = self.batch_size,
 			#shuffle     = 0,                 
@@ -57,6 +57,8 @@ class FileIter(DataIter):
 				label = int(label_batch[i])
 				img = img_batch[i].astype(np.uint8)
 				label_img[str(label)+' '+str(cur_num)+' '+str(i)] = img
+			#if cur_num == 10:
+			#	break
 
 		self.sorted_label_img = sorted(label_img.items(), key = lambda x:int(x[0].split(' ')[0])) #label = sorted_label_img[i][0]   img = sorted_label_img[i][1] 
 
@@ -112,10 +114,10 @@ class FileIter(DataIter):
 	def next(self):
 		if self.iter_next():
 			self.get_train_list()
-			data = np.zeros((self.batch_size, self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]), dtype='float32')
+			data = np.ones((self.batch_size, self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]), dtype='float32')
 			label = np.zeros((self.batch_size, ))
 			#self._shuffle()
-
+			
 			for i in range(len(self.train_list)):
 				data_origin = self.tmp_list[self.train_list[i]][1].astype('float32')
 				data_mean = data_origin
@@ -128,6 +130,9 @@ class FileIter(DataIter):
 
 				data[i] = data_scale
 				label[i] = int(self.tmp_list[self.train_list[i]][0].split(' ')[0])
+			
+			occlusion_aug(self.batch_size, self.data_shapes, max_w=50, max_h=50, min_w=15, min_h=15, 
+							min_prob=0.0, max_prob=0.5, img=data)
 
 			self.data = [mx.nd.array(data)]
 			self.label = [mx.nd.array(label)]
@@ -148,4 +153,27 @@ class FileIter(DataIter):
 			raise StopIteration
 
 
+def occlusion_aug(batch_size, img_shape, max_w, max_h, min_w, min_h, min_prob, max_prob, img): 
+	shape = [batch_size] + list(img_shape)
+	channel_num = img_shape[1]
+	img_w = shape[3]
+	img_h = shape[2]
+	prob = np.random.uniform(min_prob, max_prob)
+	rand_num = int(prob * batch_size)
+	if rand_num <= 0:
+		return img
+	rand_index = np.random.choice(batch_size, rand_num, False)
+	rand_source = np.random.randint(0, 1000000, rand_num * 4)
+	x_rand = rand_source[0:rand_num] % img_w #np.random.randint(0, img_w, rand_num)
+	y_rand = rand_source[rand_num:2*rand_num] % img_h  #np.random.randint(0, img_h, rand_num)
+	w_rand = rand_source[rand_num*2:3*rand_num] % img_w + 1 #np.random.randint(0, img_w, rand_num)
+	h_rand = rand_source[rand_num*3:4*rand_num] % img_h + 1#np.random.randint(0, img_h, rand_num)
 
+	indices = np.where(img_w - (x_rand + w_rand) < 0)
+	w_rand[indices] = img_w - x_rand[indices]
+	indices = np.where(img_h - (y_rand + h_rand) < 0)
+	h_rand[indices] = img_h - y_rand[indices]
+	for k in range(rand_num):
+		index = rand_index[k]
+		img[index][:,y_rand[k]:y_rand[k] + h_rand[k],x_rand[k]:x_rand[k]+w_rand[k]] = 0 
+	return img
