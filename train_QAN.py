@@ -49,7 +49,7 @@ def tiny_network(data):
 	fc2 = mx.sym.FullyConnected(data=act1, num_hidden=1, name='fc2_s')
 	score = mx.sym.Activation(data=fc2, act_type='sigmoid', name='score')
 	score_l1 = mx.sym.Custom(data=score, set_num=args.set_num, per_set_num=args.per_set_num, ctx=ctx[0], 
-							op_type='set_l1_norm', name='score_l1')
+				op_type='set_l1_norm', name='score_l1')
 
 	return score_l1
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
 	data_shapes = (3, 112, 96)
 	fileiter = dataiter_custom.FileIter(data_shapes=data_shapes, set_num=args.set_num, 
-										per_set_num=args.per_set_num, duplicate_num=args.duplicate_num)
+					per_set_num=args.per_set_num, duplicate_num=args.duplicate_num)
 	fileiter.reset()
 
 	ctx = [mx.gpu(int(i)) for i in args.gpus.split(',')]
@@ -81,25 +81,25 @@ if __name__ == '__main__':
 	feature_output = all_layers['fc5_xaiver_256_output']
 	score = tiny_network(data)
 	feature_set = mx.sym.Custom(score=score, feature=feature_output, data=data, label=label, 
-								set_num=args.set_num, per_set_num=args.per_set_num, ctx=ctx[0],
-								op_type='batch_pool')
+				set_num=args.set_num, per_set_num=args.per_set_num, ctx=ctx[0],
+				op_type='batch_pool')
 	metric_cost = train_info.get_cost(5*16)
 
 	score_model = train_info.get_model(devs=ctx, network=feature_set, 
-										cost=metric_cost, num_epoch=3, lr=0.0002, wd=0.00001,
-										arg_params=arg_params, aux_params=aux_params)
+					cost=metric_cost, num_epoch=3, lr=0.0002, wd=0.00001,
+					arg_params=arg_params, aux_params=aux_params)
 
 	score_model.fit(X=fileiter,
-					#eval_data=val,
-					train_metric=[mx.metric.CustomMetric(feval=lambda label, pred: np.sum(pred) / pred.shape[0])],
-					eval_metric=[train_model.NdcgEval(10), train_model.LFWVeri(0.0, 30.0, 300)],
-					# eval_metric        = [LFWVeri(0.0, 5.0, 1000)],
-					fixed_param_names=all_layers.list_arguments()[1:],
-					#kvstore=kv,
-					batch_end_callback=mx.callback.Speedometer(args.per_set_num*args.set_num, 1),
-					#epoch_end_callback=checkpoint,
-					eval_first=False,
-					#l2_reg=args.l2_reg,
-					#svd_epoches_period=args.do_svd_period,
-					#svd_param_name=last_fc_name
-					)
+			#eval_data=val,
+			train_metric=[mx.metric.CustomMetric(feval=lambda label, pred: np.sum(pred) / pred.shape[0])],
+			eval_metric=[train_model.NdcgEval(10), train_model.LFWVeri(0.0, 30.0, 300)],
+			# eval_metric        = [LFWVeri(0.0, 5.0, 1000)],
+			fixed_param_names=all_layers.list_arguments()[1:],
+			#kvstore=kv,
+			batch_end_callback=mx.callback.Speedometer(args.per_set_num*args.set_num, 1),
+			#epoch_end_callback=checkpoint,
+			eval_first=False,
+			#l2_reg=args.l2_reg,
+			#svd_epoches_period=args.do_svd_period,
+			#svd_param_name=last_fc_name
+			)
