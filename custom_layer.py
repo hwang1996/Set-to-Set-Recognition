@@ -24,15 +24,18 @@ class batch_pool(mx.operator.CustomOp):
 		set_fea_re = mx.nd.repeat(set_fea, repeats=self.per_set_num, axis=0)
 		
 		self.feature = feature
-		self.set_fea = set_fea
+		self.set_fea_re = set_fea_re
 
 		self.assign(out_data[0], req[0], set_fea_re)
 
 
 	def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
 		grad = mx.nd.zeros((self.per_set_num*self.set_num, 256), self.ctx)
+		'''
 		for i in range(self.per_set_num*self.set_num):
-			grad[i] = (self.feature[i]-self.set_fea[int(i/self.per_set_num)])*out_grad[0][int(i/self.per_set_num)]
+			grad[i] = (self.feature[i]-self.set_fea_re[i])*out_grad[0][i]
+		'''
+		grad = (self.feature-self.set_fea_re)*out_grad[0]
 		grad = mx.nd.sum(grad, axis=1).reshape((self.per_set_num*self.set_num,1))
 
 		self.assign(in_grad[0], req[0], grad)
