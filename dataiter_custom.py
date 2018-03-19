@@ -8,7 +8,7 @@ from mxnet.io import DataIter, DataBatch
 
 
 class FileIter(DataIter):
-	def __init__(self, data_shapes, set_num, per_set_num, duplicate_num, data_name="data", label_name="label"):
+	def __init__(self, data_shapes, set_num, per_set_num, duplicate_num, ctx, data_name="data", label_name="label"):
 		#duplicate_num <= set_num/2
 		super(FileIter, self).__init__()
 		self.batch_size = set_num*per_set_num
@@ -18,8 +18,9 @@ class FileIter(DataIter):
 		self.duplicate_num = duplicate_num
 		self.data_name = data_name
 		self.label_name = label_name
-		self.data = mx.nd.zeros((self.batch_size, self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]))
-		self.label = mx.nd.zeros((self.batch_size, ))
+		self.ctx = ctx
+		#self.data = mx.nd.zeros((self.batch_size, self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]), self.ctx)
+		#self.label = mx.nd.zeros((self.batch_size, ), self.ctx)
 
 		self.train = mx.io.ImageRecordIter(
 			path_imgrec = '../hangzhougongan_train.rec',
@@ -120,22 +121,25 @@ class FileIter(DataIter):
 			
 			for i in range(len(self.train_list)):
 				data_origin = self.tmp_list[self.train_list[i]][1].astype('float32')
-				data_mean = data_origin
-				data_mean[0,:] = data_origin[0,:]-127.5
-				data_scale = data_mean/127.5
 				#Gaussian Noise 
-				mu, sigma = 0, 0.1
+				mu, sigma = 0, 25
 				noise = np.random.normal(mu, sigma, (self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]))
-				data_scale = data_scale + noise
+				data[i] = data_origin + noise
 
-				data[i] = data_scale
-				label[i] = int(self.tmp_list[self.train_list[i]][0].split(' ')[0])
-			
 			occlusion_aug(self.batch_size, self.data_shapes, max_w=50, max_h=50, min_w=15, min_h=15, 
 							min_prob=0.0, max_prob=0.5, img=data)
 
-			self.data = [mx.nd.array(data)]
-			self.label = [mx.nd.array(label)]
+			for i in range(self.batch_size):
+				data_aug = data[i]
+				data_mean = data_aug
+				data_mean[0,:] = data_aug[0,:]-127.5
+				data_scale = data_mean/127.5
+
+				data[i] = data_scale
+				label[i] = int(self.tmp_list[self.train_list[i]][0].split(' ')[0])
+
+			self.data = [mx.nd.array(data, self.ctx)]
+			self.label = [mx.nd.array(label, self.ctx)]
 
 			self.train_list = list(set(self.train_list))
 
@@ -175,5 +179,5 @@ def occlusion_aug(batch_size, img_shape, max_w, max_h, min_w, min_h, min_prob, m
 	h_rand[indices] = img_h - y_rand[indices]
 	for k in range(rand_num):
 		index = rand_index[k]
-		img[index][:,y_rand[k]:y_rand[k] + h_rand[k],x_rand[k]:x_rand[k]+w_rand[k]] = 0 
+		img[index][:,y_rand[k]:y_rand[k] + h_rand[k],x_rand[k]:x_rand[k]+w_rand[k]] = random.randint(0, 255)
 	return img
