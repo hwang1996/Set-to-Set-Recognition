@@ -13,31 +13,39 @@ class batch_pool(mx.operator.CustomOp):
 		data = in_data[2]
 		#mx.nd.save('my_img', [data])
 		label = in_data[3]
+		
+		self.score_set = mx.nd.zeros((self.set_num, 1), self.ctx)
+		for i in range(self.set_num):
+			for j in range(self.per_set_num):
+				self.score_set[i] = self.score_set[i]+score[i*self.per_set_num+j]
 
 		set_fea_tmp = mx.nd.broadcast_mul(score, feature)  #batch_size x 256
 		y = mx.nd.split(set_fea_tmp, axis=0, num_outputs=self.set_num) 
 		set_fea = mx.nd.zeros((self.set_num, 256), self.ctx)
 		for i in range(len(y)):
-			set_fea[i] = mx.nd.sum(y[i], axis=0)
+			set_fea[i] = mx.nd.sum(y[i], axis=0)/self.score_set[i]
 
 		set_fea_re = mx.nd.zeros((self.per_set_num*self.set_num, 256), self.ctx)
 		set_fea_re = mx.nd.repeat(set_fea, repeats=self.per_set_num, axis=0)
 		
 		self.feature = feature
 		self.set_fea_re = set_fea_re
-
+		self.score = score
+		#print 'set_fea_re is '
+		#print set_fea_re.asnumpy()
 		self.assign(out_data[0], req[0], set_fea_re)
-
+		#import pdb; pdb.set_trace()
 
 	def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
 		grad = mx.nd.zeros((self.per_set_num*self.set_num, 256), self.ctx)
-		'''
-		for i in range(self.per_set_num*self.set_num):
-			grad[i] = (self.feature[i]-self.set_fea_re[i])*out_grad[0][i]
-		'''
-		grad = (self.feature-self.set_fea_re)*out_grad[0]
-		grad = mx.nd.sum(grad, axis=1).reshape((self.per_set_num*self.set_num,1))
+		
+		for i in range(self.set_num*self.per_set_num):
+			grad[i] = (self.feature[i]*self.score_set[int(i/self.per_set_num)] \
+				- self.set_fea_re[i]*self.score_set[int(i/self.per_set_num)])/mx.nd.square(self.score_set[int(i/self.per_set_num)])
 
+		grad = grad*out_grad[0]
+		grad = mx.nd.sum(grad, axis=1).reshape((self.per_set_num*self.set_num,1))
+		#import pdb; pdb.set_trace()
 		self.assign(in_grad[0], req[0], grad)
 		self.assign(in_grad[1], req[1], 0)
 		self.assign(in_grad[2], req[2], 0)
