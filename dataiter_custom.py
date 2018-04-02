@@ -9,7 +9,7 @@ from mxnet.io import DataIter, DataBatch
 
 
 class FileIter(DataIter):
-	def __init__(self, data_shapes, set_num, per_set_num, duplicate_num, ctx, data_name="data", label_name="label"):
+	def __init__(self, data_shapes, set_num, per_set_num, duplicate_num, ctx, hdfs_path, max_times_epoch, data_name="data", label_name="label"):
 		#duplicate_num <= set_num/2
 		super(FileIter, self).__init__()
 		self.batch_size = set_num*per_set_num
@@ -20,11 +20,13 @@ class FileIter(DataIter):
 		self.data_name = data_name
 		self.label_name = label_name
 		self.ctx = ctx
+		self.times_epoch = 0
+		self.max_times_epoch = max_times_epoch
 		#self.data = mx.nd.zeros((self.batch_size, self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]), self.ctx)
 		#self.label = mx.nd.zeros((self.batch_size, ), self.ctx)
 		
 		self.train = mx.io.ImageRecordIter(
-			path_imgrec = '../hangzhougongan_train.rec',
+			path_imgrec = hdfs_path + 'hangzhougongan_train.rec',
 			data_shape  = self.data_shapes,
 			batch_size  = self.batch_size,
 			#shuffle     = 0,                 
@@ -63,28 +65,31 @@ class FileIter(DataIter):
 			#	break
 
 		self.sorted_label_img = sorted(label_img.items(), key = lambda x:int(x[0].split(' ')[0])) #label = sorted_label_img[i][0]   img = sorted_label_img[i][1] 
+		#import pdb; pdb.set_trace()
 
 	def reset(self):
 		self.get_total_list()
+		self.times_epoch = 0
 		#tmp_list[i] tuple -> list
+		'''
 		self.tmp_list = []
 		for i in range(len(self.sorted_label_img)):
 			self.tmp_list.append([self.sorted_label_img[i][0], self.sorted_label_img[i][1]])
-			self.tmp_list[i].append(1)
-
+			#self.tmp_list[i].append(1)
+		'''
 	def iter_next(self):
 		if self.get_label_idx():
-			return len(self.label_idx) >= self.set_num
+			return self.max_times_epoch > self.times_epoch
 		else:
 			return False
 
 	def get_label_idx(self):
 		self.label_idx = {}
-		if self.tmp_list:
-			tmp = int(self.tmp_list[0][0].split(' ')[0])  #the first one
+		if self.sorted_label_img:
+			tmp = int(self.sorted_label_img[0][0].split(' ')[0])  #the first one
 			self.label_idx[tmp] = 0
-			for i in range(len(self.tmp_list)):
-				cur_label = int(self.tmp_list[i][0].split(' ')[0])
+			for i in range(len(self.sorted_label_img)):
+				cur_label = int(self.sorted_label_img[i][0].split(' ')[0])
 				if tmp != cur_label:
 					tmp = cur_label
 					self.label_idx[cur_label] = i
@@ -121,7 +126,7 @@ class FileIter(DataIter):
 		# len(self.label_idx) = 53950
 		for i in range(self.set_num):
 			if random_list[i] == max(self.label_idx.keys()):  #the last one
-				per_random_list = [random.randint(self.label_idx[random_list[i]], len(self.tmp_list)-1) for _ in range(self.per_set_num)]
+				per_random_list = [random.randint(self.label_idx[random_list[i]], len(self.sorted_label_img)-1) for _ in range(self.per_set_num)]
 			else:
 				k = 0
 				while not(random_list[i]+k+1 in self.label_idx.keys()):
@@ -130,9 +135,11 @@ class FileIter(DataIter):
 			total_list.extend(per_random_list)
 
 		self.train_list = total_list
-		import pdb; pdb.set_trace()
+		#import pdb; pdb.set_trace()
 
 	def next(self):
+		self.times_epoch += 1
+
 		if self.iter_next():
 			self.get_train_list()
 			data = np.ones((self.batch_size, self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]), dtype='float32')
@@ -143,38 +150,32 @@ class FileIter(DataIter):
 				for i in range(len(self.train_list)):
 					prob = np.random.uniform()
 					if prob <= 0.30:
-						data_origin = self.tmp_list[self.train_list[i]][1].astype('float32').transpose((1, 2, 0))
-						data_BGR = cv2.cvtColor(data_origin, cv2.COLOR_RGB2BGR)
-						kernel, anchor = motion_blur(random.randint(20, 60), random.randint(20, 60))
-						data_BGR = cv2.filter2D(data_BGR, -1, kernel, anchor=anchor)
-						data[i] = cv2.cvtColor(data_BGR, cv2.COLOR_BGR2RGB).transpose((2, 0, 1))
+						data_origin = self.sorted_label_img[self.train_list[i]][1].astype('float32').transpose((1, 2, 0))
+						kernel, anchor = motion_blur(random.randint(15, 40), random.randint(20, 60))
+						data[i] = cv2.filter2D(data_origin, -1, kernel, anchor=anchor).transpose((2, 0, 1))
 					else:
-						data[i] = self.tmp_list[self.train_list[i]][1].astype('float32')
+						data[i] = self.sorted_label_img[self.train_list[i]][1].astype('float32')
 
 			else:
 				for i in range(len(self.train_list)):
 					if i in self.duplicate_clean_position:
-						data[i] = self.tmp_list[self.train_list[i]][1].astype('float32')
+						data[i] = self.sorted_label_img[self.train_list[i]][1].astype('float32')
 					elif i in self.duplicate_noise_position:
 						prob = np.random.uniform()
 						if prob <= 0.80:
-							data_origin = self.tmp_list[self.train_list[i]][1].astype('float32').transpose((1, 2, 0))
-							data_BGR = cv2.cvtColor(data_origin, cv2.COLOR_RGB2BGR)
+							data_origin = self.sorted_label_img[self.train_list[i]][1].astype('float32').transpose((1, 2, 0))
 							kernel, anchor = motion_blur(random.randint(20, 60), random.randint(20, 60))
-							data_BGR = cv2.filter2D(data_BGR, -1, kernel, anchor=anchor)
-							data[i] = cv2.cvtColor(data_BGR, cv2.COLOR_BGR2RGB).transpose((2, 0, 1))
+							data[i] = cv2.filter2D(data_origin, -1, kernel, anchor=anchor).transpose((2, 0, 1))
 						else:
-							data[i] = self.tmp_list[self.train_list[i]][1].astype('float32')
+							data[i] = self.sorted_label_img[self.train_list[i]][1].astype('float32')
 					elif i in self.others_position:
 						prob = np.random.uniform()
 						if prob <= 0.30:
-							data_origin = self.tmp_list[self.train_list[i]][1].astype('float32').transpose((1, 2, 0))
-							data_BGR = cv2.cvtColor(data_origin, cv2.COLOR_RGB2BGR)
+							data_origin = self.sorted_label_img[self.train_list[i]][1].astype('float32').transpose((1, 2, 0))
 							kernel, anchor = motion_blur(random.randint(20, 60), random.randint(20, 60))
-							data_BGR = cv2.filter2D(data_BGR, -1, kernel, anchor=anchor)
-							data[i] = cv2.cvtColor(data_BGR, cv2.COLOR_BGR2RGB).transpose((2, 0, 1))
+							data[i] = cv2.filter2D(data_origin, -1, kernel, anchor=anchor).transpose((2, 0, 1))
 						else:
-							data[i] = self.tmp_list[self.train_list[i]][1].astype('float32')
+							data[i] = self.sorted_label_img[self.train_list[i]][1].astype('float32')
 
 			occlusion_aug(self.batch_size, self.data_shapes, max_w=60, max_h=100, 
 							min_prob=0.0, max_prob=0.3, img=data)
@@ -185,7 +186,8 @@ class FileIter(DataIter):
 				#print i
 			import pdb; pdb.set_trace()
 			'''
-
+			#import pdb; pdb.set_trace()
+			
 			for i in range(self.batch_size):
 				data_aug = data[i]
 				data_mean = data_aug
@@ -193,13 +195,14 @@ class FileIter(DataIter):
 				data_scale = data_mean/127.5
 
 				data[i] = data_scale
-				label[i] = int(self.tmp_list[self.train_list[i]][0].split(' ')[0])
-
-			self.data = [mx.nd.array(data, self.ctx)]
-			self.label = [mx.nd.array(label, self.ctx)]
+				label[i] = int(self.sorted_label_img[self.train_list[i]][0].split(' ')[0])
+			
+			self.data = [mx.nd.array(data)]
+			self.label = [mx.nd.array(label)]
 			#import pdb; pdb.set_trace()
 			self.train_list = list(set(self.train_list))
 
+			'''
 			#delete samples which are trained already
 			del_num = 0
 			for i in range(len(self.train_list)):
@@ -208,7 +211,7 @@ class FileIter(DataIter):
 				if self.tmp_list[i-del_num][2] == 0:
 					del self.tmp_list[i-del_num]
 					del_num += 1
-
+			'''
 			return DataBatch(data=self.data, label=self.label)
 		else:
 			raise StopIteration
