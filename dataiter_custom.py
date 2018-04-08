@@ -9,7 +9,7 @@ from mxnet.io import DataIter, DataBatch
 
 
 class FileIter(DataIter):
-	def __init__(self, data_shapes, set_num, per_set_num, duplicate_num, ctx, hdfs_path, max_times_epoch, data_name="data", label_name="label"):
+	def __init__(self, data_shapes, set_num, per_set_num, duplicate_num, hdfs_path, max_times_epoch, data_name="data", label_name="label"):
 		#duplicate_num <= set_num/2
 		super(FileIter, self).__init__()
 		self.batch_size = set_num*per_set_num
@@ -19,7 +19,6 @@ class FileIter(DataIter):
 		self.duplicate_num = duplicate_num
 		self.data_name = data_name
 		self.label_name = label_name
-		self.ctx = ctx
 		self.times_epoch = 0
 		self.max_times_epoch = max_times_epoch
 		#self.data = mx.nd.zeros((self.batch_size, self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]), self.ctx)
