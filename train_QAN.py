@@ -84,7 +84,7 @@ if __name__ == '__main__':
 		assert args.set_num%len(ctx.strip(',').split(',')) == 0, 'set_num error!'
 
 	data_shapes = (3, 112, 96)
-	fileiter = dataiter_custom.FileIter(data_shapes=data_shapes, set_num=args.set_num, ctx=ctx,
+	fileiter = dataiter_custom.FileIter(data_shapes=data_shapes, set_num=args.set_num,
 					per_set_num=args.per_set_num, duplicate_num=args.duplicate_num,
 					hdfs_path=args.hdfs_path, max_times_epoch=args.max_times_epoch)
 	fileiter.reset()
