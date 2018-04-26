@@ -298,30 +298,6 @@ class FileIter(DataIter):
 
 		self.train_list = total_list
 		#import pdb; pdb.set_trace()
-	
-	def save_img(self, score, nbatch, epoch):
-		random_set_num = 10
-		data = self.data[0].asnumpy()
-		#import pdb; pdb.set_trace()
-		plt.figure(num='train_img',figsize=(10,20))
-		for i in range(random_set_num):
-			for j in range(self.per_set_num):
-				#import pdb; pdb.set_trace()
-				plt.subplot(random_set_num, self.per_set_num, i*self.per_set_num+j+1)
-				score_float = '%.4f' %score[i*self.per_set_num+j][0]
-				plt.title(score_float, fontsize=20)
-				data_mean = data[i*self.per_set_num+j]*127.5
-				data_plus = data_mean
-				data_plus[0,:] = data_mean[0,:]+127.5
-				data_origin = data_plus.astype('uint8').transpose((1, 2, 0))
-				plt.imshow(data_origin)
-				plt.axis('off')
-		#plt.tight_layout(pad=1, h_pad=0.5, w_pad=0.5)
-		plt.tight_layout()
-		img_name = "epoch-"+str(epoch)+"_"+"batch-"+str(nbatch)+".png"
-		plt.savefig("epoch-"+str(epoch)+"_"+"batch-"+str(nbatch)+".png")
-		# os.execl("/usr/bin/env", "sh", "./test.sh", "epoch-"+str(epoch)+"_"+"batch-"+str(nbatch)+".png", "hdfs://hobot-bigdata/user/hao01.wang/")
-		#print "Save Image OK"
 
 
 	def train_next(self):
