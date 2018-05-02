@@ -47,21 +47,23 @@ class batch_pool(mx.operator.CustomOp):
 		#import pdb; pdb.set_trace()
 
 	def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
-		grad = mx.nd.zeros((self.per_set_num*self.set_num, 256), ctx=out_grad[0].context)
+		grad_score = mx.nd.zeros((self.per_set_num*self.set_num, 256), ctx=out_grad[0].context)
 		
 		score_sum_re = mx.nd.repeat(self.score_sum, repeats=self.per_set_num, axis=0).reshape((self.per_set_num*self.set_num,1))
-		grad = (self.feature-self.set_fea_re)/score_sum_re
+		grad_score = (self.feature-self.set_fea_re)/score_sum_re
 		'''
 		for i in range(self.set_num*self.per_set_num):
-			grad[i] = (self.feature[i]*self.score_sum[int(i/self.per_set_num)] \
+			grad_score[i] = (self.feature[i]*self.score_sum[int(i/self.per_set_num)] \
 				- self.set_fea_re[i]*self.score_sum[int(i/self.per_set_num)])/mx.nd.square(self.score_sum[int(i/self.per_set_num)])
 		'''
 
-		grad = grad*out_grad[0]
-		grad = mx.nd.sum(grad, axis=1).reshape((self.per_set_num*self.set_num,1))
+		grad_score = grad_score*out_grad[0]
+		grad_score = mx.nd.sum(grad_score, axis=1).reshape((self.per_set_num*self.set_num,1))
+		
+		grad_fea = (self.score/score_sum_re)*out_grad[0]
 
-		self.assign(in_grad[0], req[0], grad)
-		self.assign(in_grad[1], req[1], 0)
+		self.assign(in_grad[0], req[0], grad_score)
+		self.assign(in_grad[1], req[1], grad_fea)
 		self.assign(in_grad[2], req[2], 0)
 		self.assign(in_grad[3], req[3], 0)
 		
