@@ -303,7 +303,7 @@ class FileIter(DataIter):
 		random_set_num = 10
 		data = self.data[0].asnumpy()
 		#import pdb; pdb.set_trace()
-		plt.figure(num='train_img',figsize=(10,20))
+		plt.figure(num='train_img',figsize=(2*self.per_set_num,20))
 		for i in range(random_set_num):
 			for j in range(self.per_set_num):
 				#import pdb; pdb.set_trace()
@@ -384,10 +384,10 @@ class FileIter(DataIter):
 				data[i] = data_scale
 				label[i] = int(self.sorted_label_img[self.train_list[i]][0].split(' ')[0])
 
-			longhu_train_data = np.load('longhu_train_data.npy')
-			longhu_train_label = np.load('longhu_train_label.npy')
-			data[0:50] = longhu_train_data
-			label[0:50] = longhu_train_label
+			# longhu_train_data = np.load('longhu_train_data.npy')
+			# longhu_train_label = np.load('longhu_train_label.npy')
+			# data[0:50] = longhu_train_data
+			# label[0:50] = longhu_train_label
 			#import pdb; pdb.set_trace()
 			
 			self.data = [mx.nd.array(data)]
