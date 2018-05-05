@@ -29,8 +29,8 @@ class FileIter(DataIter):
 		self.rec_name = rec_name
 		self.data_type = data_type
 		self.max_num_of_duplicate_set = max_num_of_duplicate_set
-		self.i = 0
-		self.j = 0
+		self.out_loop = 0
+		self.in_loop = 0
 		self.end = 0
 		#self.data = np.ones((self.batch_size, self.data_shapes[0], self.data_shapes[1], self.data_shapes[2]), dtype='float32')
 		#self.label = np.zeros((self.batch_size, ), dtype=np.float32)
@@ -109,10 +109,10 @@ class FileIter(DataIter):
 			val_data = []
 			val_label = []
 			val_num = 0
-			for i in range(self.i, len(self.val_label_img)):
+			for i in range(self.out_loop, len(self.val_label_img)):
 				img_data = np.array(self.val_label_img[i])
 				
-				for j in range(self.j, len(img_data)/self.per_set_num):
+				for j in range(self.in_loop, len(img_data)/self.per_set_num):
 					# if j==(len(img_data)/self.per_set_num-1) and len(img_data)%self.per_set_num!=0:
 					# 	self.j = 0
 					# 	break
@@ -131,15 +131,15 @@ class FileIter(DataIter):
 					val_label.append(label_tmp)
 					val_num += 1
 					if j==(len(img_data)/self.per_set_num-1):
-						self.j = 0
+						self.in_loop = 0
 					if j==30:
-						self.j = 0
+						self.in_loop = 0
 						break
 					if val_num == self.set_num:
-						self.j = j
+						self.in_loop = j
 						break
 				if val_num == self.set_num:
-					self.i = i
+					self.out_loop = i
 					break
 			val_data = np.concatenate(val_data)
 			val_label = np.concatenate(val_label)
@@ -183,8 +183,8 @@ class FileIter(DataIter):
 			else:
 				self.times_epoch = 0
 		elif self.data_type == 'val':
-			self.i = 0
-			self.j = 0
+			self.out_loop = 0
+			self.in_loop = 0
 			if self.end == 0:
 				self.get_val_list()
 			else:
