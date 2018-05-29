@@ -1,4 +1,4 @@
-# Set-to-Set-Recognition (Working at Horizon Robotics Inc.)
+# Set-to-Set-Recognition (Work at Horizon Robotics Inc.)
 ##   Introduction
 Use quality aware network for video face recognition by using MXNet
 ##   Score Visualization 
